@@ -1,12 +1,6 @@
-# 固定版本以加快安装速度和提高稳定性
-supabase==2.3.0
+# 使用稳定快速的版本组合
+supabase==2.0.0
 pinecone-client==6.0.0
 google-genai
 python-dotenv==1.0.0
-
-# 预固定主要依赖版本以减少解析时间
-httpx==0.24.1
-httpcore==0.17.2
-pydantic==2.11.6
-typing-extensions==4.14.0
-python-dateutil==2.9.0
+requests==2.31.0
