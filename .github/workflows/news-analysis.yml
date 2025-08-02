@@ -1,0 +1,130 @@
+name: FOMO News Analysis
+
+on:
+  # 定时触发 - 每12小时运行一次
+  schedule:
+    - cron: '0 */12 * * *'  # UTC时间每12小时运行一次（00:00和12:00）
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: '分析时间范围（小时）'
+        required: false
+        default: '24'
+        type: string
+      company:
+        description: '公司名称（可选，留空分析所有公司）'
+        required: false
+        default: ''
+        type: string
+      save_to_db:
+        description: '是否保存到数据库'
+        required: false
+        default: false
+        type: boolean
+  
+  # Push触发
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Set up environment
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      run: |
+        echo "Environment variables configured"
+        echo "ℹ️ 系统已启用文章计数变化检测 - 只有文章数量变化的公司才会被分析"
+    
+    - name: Run news analysis
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+        PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      run: |
+        # 设置参数
+        HOURS="${{ github.event.inputs.hours || '24' }}"
+        COMPANY="${{ github.event.inputs.company || '' }}"
+        SAVE_DB="${{ github.event.inputs.save_to_db || 'true' }}"
+        
+        echo "🚀 开始FOMO新闻分析..."
+        echo "⏰ 分析范围: ${HOURS}小时"
+        echo "🏢 目标公司: ${COMPANY:-所有公司}"
+        echo "💾 保存到数据库: ${SAVE_DB}"
+        echo "📊 文章计数检测: 启用（只分析文章数量有变化的公司）"
+        
+        # 运行分析
+        python run_analysis.py \
+          --hours "$HOURS" \
+          --company "$COMPANY" \
+          --save-db "$SAVE_DB"
+    
+    - name: Upload analysis results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: news-analysis-results-${{ github.run_number }}
+        path: |
+          output/*.json
+          output/*.txt
+        retention-days: 30
+    
+    - name: Create summary
+      if: always()
+      run: |
+        echo "## 📊 FOMO News Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **运行时间**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "- **分析范围**: ${{ github.event.inputs.hours || '24' }}小时" >> $GITHUB_STEP_SUMMARY
+        echo "- **目标公司**: ${{ github.event.inputs.company || '所有公司' }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **执行频率**: 每12小时自动运行" >> $GITHUB_STEP_SUMMARY
+        echo "- **智能分析**: 仅分析文章数量有变化的公司" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # 检查结果文件
+        if [ -f "output/summary.txt" ]; then
+          echo "### 📈 分析结果" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat output/summary.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ 未找到分析结果摘要" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔗 查看详细结果" >> $GITHUB_STEP_SUMMARY
+        echo "详细的分析结果已保存为Artifacts，可在Actions页面下载查看。" >> $GITHUB_STEP_SUMMARY
