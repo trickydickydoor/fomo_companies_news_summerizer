@@ -2,6 +2,7 @@
 output/
 *.json
 *.txt
+!requirements.txt
 
 # Python
 __pycache__/
