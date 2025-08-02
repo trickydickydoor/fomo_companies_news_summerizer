@@ -1,5 +1,5 @@
-# 使用兼容的版本组合
-supabase==2.1.0  # 使用稳定版本的Supabase
+# 使用兼容的版本组合 - 解决httpx依赖冲突
+supabase==2.8.0  # 使用支持更高httpx版本的Supabase
 pinecone-client==6.0.0
 google-genai  # 使用最新版本
 python-dotenv==1.0.0
