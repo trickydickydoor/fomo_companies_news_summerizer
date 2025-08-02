@@ -1,7 +1,7 @@
 # 固定版本以加快安装速度和提高稳定性
 supabase==2.3.0
 pinecone-client==6.0.0
-google-genai==0.6.4
+google-genai
 python-dotenv==1.0.0
 
 # 预固定主要依赖版本以减少解析时间
