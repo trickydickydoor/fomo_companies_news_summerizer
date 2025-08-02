@@ -1,6 +1,6 @@
 # 使用兼容的版本组合 - 解决httpx依赖冲突
 supabase==2.8.0  # 使用支持更高httpx版本的Supabase
-pinecone-client==6.0.0
+pinecone
 google-genai  # 使用最新版本
 python-dotenv==1.0.0
 requests==2.31.0

@@ -88,15 +88,7 @@ jobs:
           --company "$COMPANY" \
           --save-db "$SAVE_DB"
     
-    - name: Upload analysis results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: news-analysis-results-${{ github.run_number }}
-        path: |
-          output/*.json
-          output/*.txt
-        retention-days: 30
+    # 移除artifact上传 - 所有结果都在控制台日志中
     
     - name: Create summary
       if: always()
@@ -110,16 +102,6 @@ jobs:
         echo "- **智能分析**: 仅分析文章数量有变化的公司" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        # 检查结果文件
-        if [ -f "output/summary.txt" ]; then
-          echo "### 📈 分析结果" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          cat output/summary.txt >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "⚠️ 未找到分析结果摘要" >> $GITHUB_STEP_SUMMARY
-        fi
-        
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔗 查看详细结果" >> $GITHUB_STEP_SUMMARY
-        echo "详细的分析结果已保存为Artifacts，可在Actions页面下载查看。" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 分析结果" >> $GITHUB_STEP_SUMMARY
+        echo "详细的分析结果请查看上方的运行日志。" >> $GITHUB_STEP_SUMMARY

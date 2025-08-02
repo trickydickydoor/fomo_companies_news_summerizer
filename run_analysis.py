@@ -28,13 +28,11 @@ def run_analysis(hours=24, company=None, save_to_db=False):
     output_dir = ensure_output_directory()
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M')
     
-    # 构建命令
+    # 构建命令 - 移除JSON输出，只保留控制台输出
     cmd = [
         sys.executable,
         os.path.join(project_root, 'src', 'main.py'),
         '--hours', str(hours),
-        '--json', os.path.join(output_dir, f'news-analysis-{timestamp}.json'),
-        '--output', os.path.join(output_dir, f'analysis-log-{timestamp}.txt'),
         '--verbose'
     ]
     
@@ -63,8 +61,7 @@ def run_analysis(hours=24, company=None, save_to_db=False):
             print("⚠️ 错误信息:")
             print(result.stderr)
         
-        # 生成摘要
-        generate_summary(output_dir, timestamp, hours, company)
+        # 不再生成文件摘要，所有信息都在控制台输出中
         
         if result.returncode == 0:
             print("\n✅ 分析完成!")
