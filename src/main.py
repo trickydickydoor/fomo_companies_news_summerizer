@@ -115,14 +115,18 @@ def main():
             supabase_service = SupabaseService()
             
             for result in results:
-                if result.get('status') == 'success':
+                # 保存成功的分析结果，或者无新闻但需要更新为null的情况
+                if result.get('status') in ['success', 'no_news', 'no_vector_data']:
                     company_name = result.get('company', '')
                     company_info = supabase_service.get_company_by_name(company_name)
                     if company_info:
                         company_id = company_info.get('id')
                         success = supabase_service.update_company_summary(company_id, result)
                         if success:
-                            print(f"✅ {company_name} 分析结果已保存到数据库")
+                            if result.get('status') == 'no_news' and result.get('news_count') == 0:
+                                print(f"✅ {company_name} 内容已设置为null（无新闻）")
+                            else:
+                                print(f"✅ {company_name} 分析结果已保存到数据库")
                         else:
                             print(f"❌ {company_name} 保存数据库失败")
                     else:

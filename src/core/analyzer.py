@@ -82,6 +82,28 @@ class NewsAnalyzer:
         Returns:
             Dict: 分析结果
         """
+        # 如果当前文章数量为0，直接返回null内容，不需要分析
+        if current_article_count == 0:
+            print(f"📭 {company_name} 当前24小时内无文章，设置内容为null")
+            
+            # 更新last_article_count为0
+            update_success = self.supabase_service.update_last_article_count(company_id, 0)
+            if update_success:
+                print(f"✅ {company_name} 文章计数更新为0")
+            else:
+                print(f"⚠️  {company_name} 文章计数更新失败")
+            
+            # 返回content为null的结果
+            return {
+                'company': company_name,
+                'news_count': 0,
+                'analysis': None,  # content设置为null
+                'sources': [],
+                'time_range_hours': hours,
+                'status': 'no_news',
+                'message': '当前24小时内无文章'
+            }
+        
         # 执行分析
         analysis_result = self.analyze_single_company(company_name, hours)
         
