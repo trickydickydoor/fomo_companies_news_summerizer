@@ -224,9 +224,8 @@ class SupabaseService:
             current_count = counts['current_article_count_24hrs']
             last_count = counts['last_article_count_24hrs']
             
-            # 如果当前文章数为0，总是需要处理（确保content为NULL）
-            # 或者文章数量有变化，需要重新分析
-            should_analyze = (current_count == 0) or (current_count != last_count)
+            # 只有文章数量有变化时才需要分析
+            should_analyze = current_count != last_count
             
             print(f"    📊 文章计数检查: 当前={current_count}, 上次={last_count}, 需要分析={should_analyze}")
             

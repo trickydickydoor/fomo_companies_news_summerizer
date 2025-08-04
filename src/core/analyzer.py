@@ -65,6 +65,25 @@ class NewsAnalyzer:
             else:
                 print(f"⏭️  {company_name} 文章数量无变化，跳过分析")
                 skipped_count += 1
+                
+                # 如果当前文章数为0，需要确保summary_24hrs为NULL
+                if current_article_count == 0:
+                    print(f"📭 {company_name} 当前无文章，确保内容为NULL")
+                    # 直接清空summary_24hrs，不需要分析
+                    success = self.supabase_service.update_company_summary(company_id, {
+                        'company': company_name,
+                        'news_count': 0,
+                        'analysis': None,
+                        'sources': [],
+                        'time_range_hours': hours,
+                        'status': 'no_news',
+                        'message': '当前24小时内无文章'
+                    })
+                    if success:
+                        print(f"✅ {company_name} 内容已清空为NULL")
+                    
+                    # 更新last_article_count为0
+                    self.supabase_service.update_last_article_count(company_id, 0)
         
         print(f"\n📊 分析总结: 分析了 {analyzed_count} 家公司，跳过 {skipped_count} 家公司")
         return results
