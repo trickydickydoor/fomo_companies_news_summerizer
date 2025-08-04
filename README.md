@@ -17,7 +17,7 @@
 - **分析时间范围**: 24小时
 - **分析目标**: 所有公司（仅文章数量有变化的）
 - **运行频率**: 每12小时自动运行
-- **智能检测**: 基于current_article_count和last_article_count变化
+- **智能检测**: 基于current_article_count_24hrs和last_article_count_24hrs变化
 
 ## 配置说明
 
@@ -43,9 +43,9 @@
 
 系统现在具备智能分析功能：
 
-- **文章计数检测**: 系统会比较每个公司的 `current_article_count` 和 `last_article_count`
+- **文章计数检测**: 系统会比较每个公司的 `current_article_count_24hrs` 和 `last_article_count_24hrs`
 - **选择性分析**: 只有文章数量发生变化的公司才会被分析
-- **自动更新**: 分析完成后，自动将 `last_article_count` 更新为开始分析时的 `current_article_count`
+- **自动更新**: 分析完成后，自动将 `last_article_count_24hrs` 更新为开始分析时的 `current_article_count_24hrs`
 - **效率提升**: 避免重复分析相同数据，显著提高系统效率
 
 ### 4. 自定义参数（可选）
@@ -100,10 +100,10 @@ Cron表达式说明：
 ## 智能分析工作流程
 
 1. **获取公司列表**: 从Supabase获取所有公司信息
-2. **检查文章计数**: 比较每个公司的current_article_count和last_article_count
+2. **检查文章计数**: 比较每个公司的current_article_count_24hrs和last_article_count_24hrs
 3. **选择性分析**: 只对文章数量有变化的公司进行分析
 4. **执行分析**: 使用Pinecone和Gemini进行新闻分析
-5. **更新计数**: 分析完成后更新last_article_count
+5. **更新计数**: 分析完成后更新last_article_count_24hrs
 6. **生成报告**: 保存分析结果和统计信息
 
 ## 效率优化

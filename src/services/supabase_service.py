@@ -183,20 +183,20 @@ class SupabaseService:
             company_id: 公司ID
             
         Returns:
-            Dict: 包含current_article_count和last_article_count的字典
+            Dict: 包含current_article_count_24hrs和last_article_count_24hrs的字典
         """
         try:
-            response = self.client.table('companies').select('current_article_count, last_article_count').eq('id', company_id).execute()
+            response = self.client.table('companies').select('current_article_count_24hrs, last_article_count_24hrs').eq('id', company_id).execute()
             if response.data:
                 data = response.data[0]
                 return {
-                    'current_article_count': data.get('current_article_count', 0),
-                    'last_article_count': data.get('last_article_count', 0)
+                    'current_article_count_24hrs': data.get('current_article_count_24hrs', 0),
+                    'last_article_count_24hrs': data.get('last_article_count_24hrs', 0)
                 }
-            return {'current_article_count': 0, 'last_article_count': 0}
+            return {'current_article_count_24hrs': 0, 'last_article_count_24hrs': 0}
         except Exception as e:
             print(f"获取公司文章计数失败: {e}")
-            return {'current_article_count': 0, 'last_article_count': 0}
+            return {'current_article_count_24hrs': 0, 'last_article_count_24hrs': 0}
     
     def should_analyze_company(self, company_id: str) -> tuple[bool, int]:
         """
@@ -210,8 +210,8 @@ class SupabaseService:
         """
         try:
             counts = self.get_company_article_counts(company_id)
-            current_count = counts['current_article_count']
-            last_count = counts['last_article_count']
+            current_count = counts['current_article_count_24hrs']
+            last_count = counts['last_article_count_24hrs']
             
             should_analyze = current_count != last_count
             print(f"    📊 文章计数检查: 当前={current_count}, 上次={last_count}, 需要分析={should_analyze}")
@@ -223,7 +223,7 @@ class SupabaseService:
     
     def update_last_article_count(self, company_id: str, new_count: int) -> bool:
         """
-        更新公司的last_article_count
+        更新公司的last_article_count_24hrs
         
         Args:
             company_id: 公司ID
@@ -233,15 +233,15 @@ class SupabaseService:
             bool: 更新是否成功
         """
         try:
-            print(f"    🔄 更新公司 {company_id} 的last_article_count为 {new_count}...")
+            print(f"    🔄 更新公司 {company_id} 的last_article_count_24hrs为 {new_count}...")
             
             response = self.client.table('companies').update({
-                'last_article_count': new_count
+                'last_article_count_24hrs': new_count
             }).eq('id', company_id).execute()
             
-            print(f"    ✅ last_article_count更新成功")
+            print(f"    ✅ last_article_count_24hrs更新成功")
             return True
             
         except Exception as e:
-            print(f"    ❌ 更新last_article_count失败: {e}")
+            print(f"    ❌ 更新last_article_count_24hrs失败: {e}")
             return False
