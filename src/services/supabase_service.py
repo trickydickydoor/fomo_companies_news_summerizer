@@ -136,18 +136,29 @@ class SupabaseService:
             bool: 更新是否成功
         """
         try:
-            # 添加更新时间戳
-            summary_data['updated_at'] = datetime.now().isoformat()
-            
-            # 转换为JSON字符串
-            summary_json = json.dumps(summary_data, ensure_ascii=False)
-            
             print(f"    🔄 更新公司 {company_id} 的摘要数据...")
             
-            # 更新数据库
-            response = self.client.table('companies').update({
-                'summary_24hrs': summary_json
-            }).eq('id', company_id).execute()
+            # 检查是否需要设置为NULL（当analysis为None且news_count为0时）
+            analysis = summary_data.get('analysis')
+            news_count = summary_data.get('news_count', 0)
+            
+            if analysis is None and news_count == 0:
+                # 无新闻内容，将summary_24hrs设置为NULL
+                print(f"    📭 无新闻内容，将summary_24hrs设置为NULL")
+                response = self.client.table('companies').update({
+                    'summary_24hrs': None
+                }).eq('id', company_id).execute()
+            else:
+                # 有内容，正常保存JSON
+                # 添加更新时间戳
+                summary_data['updated_at'] = datetime.now().isoformat()
+                
+                # 转换为JSON字符串
+                summary_json = json.dumps(summary_data, ensure_ascii=False)
+                
+                response = self.client.table('companies').update({
+                    'summary_24hrs': summary_json
+                }).eq('id', company_id).execute()
             
             print(f"    ✅ 摘要数据更新成功")
             return True
