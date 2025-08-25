@@ -65,25 +65,6 @@ class NewsAnalyzer:
             else:
                 print(f"⏭️  {company_name} 文章数量无变化，跳过分析")
                 skipped_count += 1
-                
-                # 如果当前文章数为0，需要确保summary_24hrs为NULL
-                if current_article_count == 0:
-                    print(f"📭 {company_name} 当前无文章，确保内容为NULL")
-                    # 直接清空summary_24hrs，不需要分析
-                    success = self.supabase_service.update_company_summary(company_id, {
-                        'company': company_name,
-                        'news_count': 0,
-                        'analysis': None,
-                        'sources': [],
-                        'time_range_hours': hours,
-                        'status': 'no_news',
-                        'message': '当前24小时内无文章'
-                    })
-                    if success:
-                        print(f"✅ {company_name} 内容已清空为NULL")
-                    
-                    # 更新last_article_count为0
-                    self.supabase_service.update_last_article_count(company_id, 0)
         
         print(f"\n📊 分析总结: 分析了 {analyzed_count} 家公司，跳过 {skipped_count} 家公司")
         return results
@@ -101,28 +82,6 @@ class NewsAnalyzer:
         Returns:
             Dict: 分析结果
         """
-        # 如果当前文章数量为0，直接返回null内容，不需要分析
-        if current_article_count == 0:
-            print(f"📭 {company_name} 当前24小时内无文章，设置内容为null")
-            
-            # 更新last_article_count为0
-            update_success = self.supabase_service.update_last_article_count(company_id, 0)
-            if update_success:
-                print(f"✅ {company_name} 文章计数更新为0")
-            else:
-                print(f"⚠️  {company_name} 文章计数更新失败")
-            
-            # 返回content为null的结果
-            return {
-                'company': company_name,
-                'news_count': 0,
-                'analysis': None,  # content设置为null
-                'sources': [],
-                'time_range_hours': hours,
-                'status': 'no_news',
-                'message': '当前24小时内无文章'
-            }
-        
         # 执行分析
         analysis_result = self.analyze_single_company(company_name, hours)
         
@@ -171,30 +130,71 @@ class NewsAnalyzer:
             
             print(f"✅ 找到 {len(news_ids)} 条相关新闻")
             
-            # 步骤2: 生成查询语句和向量
-            print(f"\n🧠 步骤2: 生成语义搜索查询...")
-            query_text = self.gemini_service.generate_company_query(company_name)
-            print(f"📝 查询语句: {query_text}")
-            
-            self._debug_print("生成的查询文本", query_text)
-            
-            query_vector = self.gemini_service.generate_embedding(query_text)
-            if not query_vector:
-                print(f"❌ 生成查询向量失败")
-                return None
-            
-            print(f"✅ 生成向量成功，维度: {len(query_vector)}")
-            self._debug_print("查询向量样本 (前10个值)", query_vector[:10])
-            
-            # 步骤3: 使用语义搜索结合metadata过滤在Pinecone中搜索
-            print(f"\n🔍 步骤3: 使用语义搜索在向量数据库中搜索相关内容...")
-            news_data = self.pinecone_service.search_with_semantic_and_metadata(
-                query_vector=query_vector,
-                news_ids=news_ids,
-                company_name=company_name,
-                hours=hours,
-                top_k=50
-            )
+            # 根据新闻数量决定查询策略
+            if len(news_ids) <= 30:
+                # 少量新闻：使用单一查询
+                print(f"\n🧠 步骤2: 生成语义搜索查询（单一查询模式）...")
+                query_text = self.gemini_service.generate_company_query(company_name)
+                print(f"📝 查询语句: {query_text}")
+                
+                self._debug_print("生成的查询文本", query_text)
+                
+                query_vector = self.gemini_service.generate_embedding(query_text)
+                if not query_vector:
+                    print(f"❌ 生成查询向量失败")
+                    return None
+                
+                print(f"✅ 生成向量成功，维度: {len(query_vector)}")
+                self._debug_print("查询向量样本 (前10个值)", query_vector[:10])
+                
+                # 步骤3: 使用语义搜索结合metadata过滤在Pinecone中搜索
+                print(f"\n🔍 步骤3: 使用语义搜索在向量数据库中搜索相关内容...")
+                news_data = self.pinecone_service.search_with_semantic_and_metadata(
+                    query_vector=query_vector,
+                    news_ids=news_ids,
+                    company_name=company_name,
+                    hours=hours,
+                    top_k=min(len(news_ids), 100)  # 不超过实际新闻数量
+                )
+            else:
+                # 大量新闻：使用多角度查询
+                print(f"\n🧠 步骤2: 生成语义搜索查询（多角度查询模式）...")
+                print(f"📊 新闻数量较多（{len(news_ids)}条），将使用3个不同角度进行查询")
+                
+                # 定义3个不同角度的查询
+                queries = [
+                    f"{company_name}公司重大事件和战略动态",
+                    f"{company_name}产品服务和业务进展",
+                    f"{company_name}财务表现和市场反应"
+                ]
+                
+                all_news_data = []
+                
+                for i, query_text in enumerate(queries, 1):
+                    print(f"\n🔄 角度{i}: {query_text}")
+                    
+                    query_vector = self.gemini_service.generate_embedding(query_text)
+                    if not query_vector:
+                        print(f"⚠️ 角度{i}向量生成失败，跳过")
+                        continue
+                    
+                    # 每个角度获取35条新闻
+                    batch_news = self.pinecone_service.search_with_semantic_and_metadata(
+                        query_vector=query_vector,
+                        news_ids=news_ids,
+                        company_name=company_name,
+                        hours=hours,
+                        top_k=35
+                    )
+                    
+                    print(f"✅ 角度{i}获取到 {len(batch_news)} 条新闻")
+                    all_news_data.extend(batch_news)
+                
+                # 步骤3: 去重合并结果
+                print(f"\n🔍 步骤3: 合并并去重多角度查询结果...")
+                print(f"📊 合并前总数: {len(all_news_data)} 条")
+                news_data = self._deduplicate_news(all_news_data)
+                print(f"✅ 去重后: {len(news_data)} 条唯一新闻")
             
             self._debug_print("Pinecone返回的匹配结果", [
                 {
@@ -272,6 +272,29 @@ class NewsAnalyzer:
                 'status': 'error',
                 'error': str(e)
             }
+    
+    def _deduplicate_news(self, news_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        根据news_id去重新闻列表
+        
+        Args:
+            news_list: 新闻数据列表
+            
+        Returns:
+            List[Dict]: 去重后的新闻列表
+        """
+        seen_ids = set()
+        unique_news = []
+        
+        for news in news_list:
+            metadata = news.get('metadata', {})
+            news_id = metadata.get('news_id')
+            
+            if news_id and news_id not in seen_ids:
+                unique_news.append(news)
+                seen_ids.add(news_id)
+        
+        return unique_news
     
     def _extract_sources(self, news_data: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """
