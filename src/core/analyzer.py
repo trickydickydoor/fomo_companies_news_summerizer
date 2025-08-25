@@ -112,7 +112,7 @@ class NewsAnalyzer:
             print("=" * 60, flush=True)
             
             # 步骤1: 从Supabase获取相关新闻ID
-            print(f"📊 步骤1: 获取 {company_name} 最近 {hours} 小时的新闻ID...", flush=True)
+            print(f"📊 步骤1: 从数据库获取 {company_name} 最近 {hours} 小时的新闻...", flush=True)
             news_ids = self.supabase_service.get_company_news_ids(company_name, hours)
             
             self._debug_print(f"从Supabase获取的新闻ID", news_ids)
@@ -128,12 +128,13 @@ class NewsAnalyzer:
                     'status': 'no_news'
                 }
             
-            print(f"✅ 找到 {len(news_ids)} 条相关新闻")
+            print(f"✅ 数据库中找到 {len(news_ids)} 条包含'{company_name}'的新闻记录")
             
             # 根据新闻数量决定查询策略
             if len(news_ids) <= 30:
                 # 少量新闻：使用单一查询
-                print(f"\n🧠 步骤2: 生成语义搜索查询（单一查询模式）...")
+                print(f"\n💡 决策: 新闻数量≤30条，使用单一查询模式")
+                print(f"🧠 步骤2: 生成语义搜索向量...")
                 query_text = self.gemini_service.generate_company_query(company_name)
                 print(f"📝 查询语句: {query_text}")
                 
@@ -148,18 +149,26 @@ class NewsAnalyzer:
                 self._debug_print("查询向量样本 (前10个值)", query_vector[:10])
                 
                 # 步骤3: 使用语义搜索结合metadata过滤在Pinecone中搜索
-                print(f"\n🔍 步骤3: 使用语义搜索在向量数据库中搜索相关内容...")
+                print(f"\n🔍 步骤3: 在向量数据库中进行语义搜索...")
+                target_count = min(len(news_ids), 100)
+                print(f"📊 搜索参数: 在{len(news_ids)}条新闻ID范围内，获取最相似的{target_count}条")
+                
                 news_data = self.pinecone_service.search_with_semantic_and_metadata(
                     query_vector=query_vector,
                     news_ids=news_ids,
                     company_name=company_name,
                     hours=hours,
-                    top_k=min(len(news_ids), 100)  # 不超过实际新闻数量
+                    top_k=target_count
                 )
             else:
                 # 大量新闻：使用多角度查询
-                print(f"\n🧠 步骤2: 生成语义搜索查询（多角度查询模式）...")
-                print(f"📊 新闻数量较多（{len(news_ids)}条），将使用3个不同角度进行查询")
+                print(f"\n💡 决策: 新闻数量>30条，使用多角度查询模式")
+                print(f"🧠 步骤2: 生成3个不同角度的查询向量...")
+                
+                # 动态计算每个角度获取的数量
+                per_angle_count = min(50, max(35, len(news_ids) // 2))
+                print(f"📊 计算逻辑: min(50, max(35, {len(news_ids)}÷2)) = {per_angle_count}条/角度")
+                print(f"📈 预期覆盖: 3个角度 × {per_angle_count}条 = 最多{3*per_angle_count}条（去重前）")
                 
                 # 定义3个不同角度的查询
                 queries = [
@@ -171,30 +180,33 @@ class NewsAnalyzer:
                 all_news_data = []
                 
                 for i, query_text in enumerate(queries, 1):
-                    print(f"\n🔄 角度{i}: {query_text}")
+                    print(f"\n🔄 查询角度{i}: {query_text}")
+                    print(f"   目标: 在{len(news_ids)}条新闻中找最相关的{per_angle_count}条")
                     
                     query_vector = self.gemini_service.generate_embedding(query_text)
                     if not query_vector:
-                        print(f"⚠️ 角度{i}向量生成失败，跳过")
+                        print(f"   ⚠️ 角度{i}向量生成失败，跳过")
                         continue
                     
-                    # 每个角度获取35条新闻
+                    # 使用前面计算好的per_angle_count
                     batch_news = self.pinecone_service.search_with_semantic_and_metadata(
                         query_vector=query_vector,
                         news_ids=news_ids,
                         company_name=company_name,
                         hours=hours,
-                        top_k=35
+                        top_k=per_angle_count
                     )
                     
-                    print(f"✅ 角度{i}获取到 {len(batch_news)} 条新闻")
+                    print(f"   ✅ 实际获取: {len(batch_news)} 条")
                     all_news_data.extend(batch_news)
+                    print(f"   📊 累计收集: {len(all_news_data)} 条（含重复）")
                 
                 # 步骤3: 去重合并结果
-                print(f"\n🔍 步骤3: 合并并去重多角度查询结果...")
-                print(f"📊 合并前总数: {len(all_news_data)} 条")
+                print(f"\n🔍 步骤3: 去重合并查询结果...")
+                print(f"📊 去重前: {len(all_news_data)} 条（3个角度的总和）")
                 news_data = self._deduplicate_news(all_news_data)
                 print(f"✅ 去重后: {len(news_data)} 条唯一新闻")
+                print(f"📈 去重率: {(len(all_news_data)-len(news_data))/len(all_news_data)*100:.1f}% 的内容是重复的")
             
             self._debug_print("Pinecone返回的匹配结果", [
                 {
